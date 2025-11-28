@@ -2,18 +2,6 @@ Mermaid Diagram Generator with Qwen3-VL (Microservices)
 
 Dự án này sử dụng kiến trúc Microservices để tách biệt phần API Gateway (FastAPI) nhẹ và phần AI Worker (Celery + Qwen3-VL) nặng. Hệ thống sử dụng Redis làm Message Broker để giao tiếp.
 
-📂 Cấu trúc dự án
-
-my_project/
-├── api/ # Service 1: API Gateway (Nhẹ)
-│ ├── venv/ # Virtual Environment cho API
-│ └── main.py # Code FastAPI
-├── model/ # Service 2: AI Worker (Nặng - Chứa Model)
-│ ├── venv/ # Virtual Environment cho AI (Torch, Transformers)
-│ └── tasks.py # Code Celery Worker
-├── docker-compose.yml # Cấu hình Redis (Tùy chọn)
-└── README.md # Hướng dẫn sử dụng
-
 🚀 Bước 1: Khởi động Redis (Message Broker)
 
 Hệ thống cần Redis để truyền tải task giữa API và Worker.
