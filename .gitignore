@@ -1,0 +1,7 @@
+api/venv/
+model/venv/
+venv/
+pycache/
+*.pyc
+*.pyo
+*.pyd
