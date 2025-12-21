@@ -31,25 +31,24 @@ services:
     container_name: mermaid_worker
     environment:
       - REDIS_URL=redis://redis-broker:6379/0
-      - HF_HOME=/app/hf_cache # Cache model để không phải tải lại mỗi lần restart container
+      - MODEL_TYPE=
+      - HF_TOKEN=
+      - HF_HOME=/data/huggingface # Cache model để không phải tải lại mỗi lần restart container
     depends_on:
       - redis-broker
     networks:
       - mermaid_network
     volumes:
-      - ./model:/app # Hot-reload code
-      - huggingface_cache:/app/hf_cache # Volume để lưu model vĩnh viễn
+      - ~/hf_cache:/data/huggingface # Volume để lưu model vĩnh viễn
+    command: celery -A tasks worker --loglevel=info --pool=solo
     # --- Cấu hình GPU (Bỏ comment nếu dùng NVIDIA GPU) ---
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    deploy:
+       resources:
+         reservations:
+           devices:
+             - driver: nvidia
+               count: 1
+               capabilities: [gpu]
 
 networks:
   mermaid_network:
-
-volumes:
-  huggingface_cache:
