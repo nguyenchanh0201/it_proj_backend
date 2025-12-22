@@ -31,7 +31,7 @@ services:
     container_name: mermaid_worker
     environment:
       - REDIS_URL=redis://redis-broker:6379/0
-      - MODEL_TYPE=
+      - MODEL_TYPE=qwen
       - HF_TOKEN=
       - HF_HOME=/data/huggingface # Cache model để không phải tải lại mỗi lần restart container
     depends_on:
