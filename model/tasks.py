@@ -25,7 +25,7 @@ celery_app.conf.update(
 MODELS_CONFIG = {
     "qwen": {"repo": "Qwen/Qwen3-VL-4B-Instruct", "class": AutoModelForImageTextToText, "loader": "processor"},
     "gemma": {"repo": "google/gemma-3-4b-it", "class": AutoModelForCausalLM, "loader": "processor"},
-    "phi": {"repo": "microsoft/Phi-3.5-vision-instruct", "class": AutoModelForCausalLM, "loader": "processor"},
+    "phi": {"repo": "Lexius/Phi-3.5-vision-instruct", "class": AutoModelForCausalLM, "loader": "processor"},
     "llama": {"repo": "meta-llama/Llama-3.2-3B-Instruct", "class": AutoModelForCausalLM, "loader": "tokenizer"}
 }
 
@@ -46,6 +46,10 @@ if config:
         if config["loader"] == "processor":
             processor = AutoProcessor.from_pretrained(config["repo"], trust_remote_code=True, token=HF_TOKEN)
             tokenizer = processor.tokenizer if hasattr(processor, 'tokenizer') else processor
+
+            if MODEL_TYPE == "phi":
+                if hasattr(tokenizer, "chat_template") and tokenizer.chat_template:
+                    processor.chat_template = tokenizer.chat_template
         else:
             tokenizer = AutoTokenizer.from_pretrained(config["repo"], token=HF_TOKEN)
             if tokenizer.pad_token is None: tokenizer.pad_token = tokenizer.eos_token
