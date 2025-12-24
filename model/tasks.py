@@ -40,7 +40,8 @@ if config:
             torch_dtype=torch.bfloat16 if torch.cuda.is_available() else "auto",
             device_map="auto",
             trust_remote_code=True,
-            token=HF_TOKEN
+            token=HF_TOKEN,
+            _attn_implementation='eager'
         )
         if config["loader"] == "processor":
             processor = AutoProcessor.from_pretrained(config["repo"], trust_remote_code=True, token=HF_TOKEN)

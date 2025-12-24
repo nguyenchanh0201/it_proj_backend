@@ -31,7 +31,7 @@ services:
     container_name: mermaid_worker
     environment:
       - REDIS_URL=redis://redis-broker:6379/0
-      - MODEL_TYPE=qwen
+      - MODEL_TYPE=phi
       - HF_TOKEN=
       - HF_HOME=/data/huggingface # Cache model để không phải tải lại mỗi lần restart container
     depends_on:
@@ -39,6 +39,7 @@ services:
     networks:
       - mermaid_network
     volumes:
+      - ./model:/app
       - ~/hf_cache:/data/huggingface # Volume để lưu model vĩnh viễn
     command: celery -A tasks worker --loglevel=info --pool=solo
     # --- Cấu hình GPU (Bỏ comment nếu dùng NVIDIA GPU) ---
