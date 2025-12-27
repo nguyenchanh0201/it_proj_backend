@@ -9,6 +9,7 @@ from transformers import (
     AutoTokenizer, 
     TextIteratorStreamer
 )
+from parser import extract_mermaid_content
 
 # --- 1. CẤU HÌNH HỆ THỐNG ---
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -129,25 +130,9 @@ def generate_mermaid_task(self, input_text: str, mode: str = "generate") -> dict
     thread.join()
 
     # --- 5. HẬU XỬ LÝ (TRÍCH XUẤT CODE BLOCK) ---
-    final_output = generated_text.strip()
-    
-    # Logic bóc tách: Chỉ lấy nội dung giữa ```mermaid và ```
-    if "```mermaid" in final_output:
-        try:
-            parts = final_output.split("```mermaid")
-            content = parts[1].split("```")[0].strip()
-            final_output = f"```mermaid\n{content}\n```"
-        except (IndexError, ValueError):
-            # Fallback nếu split lỗi
-            pass
-    elif "```" in final_output:
-        # Nếu AI quên chữ 'mermaid' nhưng vẫn dùng code block
-        try:
-            content = final_output.split("```")[1].strip()
-            final_output = f"```mermaid\n{content}\n```"
-        except:
-            pass
+    final_output = extract_mermaid_content(generated_text)
 
+# Logic bóc tách: Chỉ lấy nội dung BÊN TRONG cặp thẻ mermaid
     return {
         "status": "completed",
         "mode": mode,
