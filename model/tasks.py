@@ -85,7 +85,7 @@ def generate_mermaid_task(self, input_text: str, mode: str = "generate") -> dict
     if model is None: 
         return {"error": "Model not loaded."}
 
-    # Chọn System Prompt dựa trên Mode
+
     if mode == "fix":
         system_prompt = PROMPT_FIX
         user_message = f"Input to fix or convert:\n\n{input_text}\n\nResult (Mermaid code only):"
@@ -100,7 +100,6 @@ def generate_mermaid_task(self, input_text: str, mode: str = "generate") -> dict
         {"role": "user", "content": user_message}
     ]
 
-    # Tiền xử lý token
     if MODEL_TYPE == "llama":
         inputs_data = tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt")
         inputs = {"input_ids": inputs_data.to(model.device)}
@@ -108,7 +107,6 @@ def generate_mermaid_task(self, input_text: str, mode: str = "generate") -> dict
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = processor(text=[text], padding=True, return_tensors="pt").to(model.device)
 
-    # Generation với Streaming (Temperature thấp để đảm bảo tính chính xác)
     streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
     generation_kwargs = dict(inputs, streamer=streamer, max_new_tokens=1024, temperature=0.01)
 
@@ -129,10 +127,8 @@ def generate_mermaid_task(self, input_text: str, mode: str = "generate") -> dict
 
     thread.join()
 
-    # --- 5. HẬU XỬ LÝ (TRÍCH XUẤT CODE BLOCK) ---
     final_output = extract_mermaid_content(generated_text)
 
-# Logic bóc tách: Chỉ lấy nội dung BÊN TRONG cặp thẻ mermaid
     return {
         "status": "completed",
         "mode": mode,

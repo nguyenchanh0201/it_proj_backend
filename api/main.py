@@ -6,7 +6,6 @@ from celery import Celery
 from celery.result import AsyncResult
 
 # --- CẤU HÌNH ---
-# Dùng tên service của redis trong docker-compose
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 celery_app = Celery(
@@ -17,7 +16,6 @@ celery_app = Celery(
 
 app = FastAPI(title="Mermaid AI Gateway")
 
-# Chỉ giữ lại text và mode (vẽ mới hoặc sửa lỗi)
 class PredictRequest(BaseModel):
     text: str
     mode: str = "generate" 
@@ -47,7 +45,6 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
             task_result = AsyncResult(task_id, app=celery_app)
             status = task_result.status
             
-            # Khởi tạo data phản hồi
             response_data = {
                 "task_id": task_id,
                 "status": status,
@@ -76,7 +73,6 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
                 break
             
             elif status == 'PROGRESS':
-                # Cập nhật thông tin real-time từ worker (percent, partial_result)
                 info = task_result.info
                 if isinstance(info, dict):
                     response_data.update(info)
@@ -86,7 +82,6 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
                 response_data["message"] = "Worker đã nhận task và đang xử lý..."
                 await websocket.send_json(response_data)
 
-            # Nghỉ 0.5s trước khi check status lần tiếp theo
             await asyncio.sleep(0.5)
 
     except WebSocketDisconnect:
