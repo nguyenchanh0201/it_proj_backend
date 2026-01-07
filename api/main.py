@@ -1,46 +1,40 @@
 import os
 import asyncio
-import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from celery import Celery
 from celery.result import AsyncResult
 
-# --- CẤU HÌNH TỪ BIẾN MÔI TRƯỜNG ---
-# Mặc định là localhost nếu chạy ngoài Docker, là 'redis' nếu chạy trong Docker Compose
+# --- CẤU HÌNH ---
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-# --- CẤU HÌNH CELERY CLIENT ---
 celery_app = Celery(
     'api_client',
     broker=REDIS_URL,
     backend=REDIS_URL
 )
 
-celery_app.conf.update(
-    enable_utc=False,
-    timezone='Asia/Ho_Chi_Minh',
-    task_track_started=True,
-)
-
-app = FastAPI(title="Mermaid Generator API (Qwen3-VL)")
+app = FastAPI(title="Mermaid AI Gateway")
 
 class PredictRequest(BaseModel):
     text: str
+    mode: str = "generate" 
 
 @app.post("/predict", status_code=202)
 def create_prediction_task(request: PredictRequest):
     """
-    Gửi task sang Worker.
+    Gửi task vào queue mặc định. Worker hiện tại đang chạy model nào 
+    thì sẽ nhận task đó.
     """
     task = celery_app.send_task(
-        'generate_mermaid_task',  # Tên task khớp với Worker
-        args=[request.text]
+        'generate_mermaid_task', 
+        args=[request.text, request.mode]
     )
     
     return {
-        "message": "Task submitted", 
-        "task_id": task.id
+        "task_id": task.id,
+        "mode": request.mode,
+        "status": "Task submitted to default queue"
     }
 
 @app.websocket("/ws/task/{task_id}")
@@ -55,14 +49,18 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
                 "task_id": task_id,
                 "status": status,
                 "percent": 0,
-                "message": "Đang chờ...",
+                "message": "Đang chờ worker...",
+                "partial_result": None,
                 "result": None
             }
 
             if status == 'SUCCESS':
-                response_data["percent"] = 100
-                response_data["message"] = "Hoàn tất!"
-                response_data["result"] = task_result.get()
+                res = task_result.get()
+                response_data.update({
+                    "percent": 100,
+                    "message": "Hoàn tất!",
+                    "result": res.get("mermaid_code")
+                })
                 await websocket.send_json(response_data)
                 await websocket.close()
                 break
@@ -81,10 +79,10 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
                 await websocket.send_json(response_data)
             
             elif status == 'STARTED':
-                response_data["message"] = "Worker đang khởi động..."
+                response_data["message"] = "Worker đã nhận task và đang xử lý..."
                 await websocket.send_json(response_data)
 
             await asyncio.sleep(0.5)
 
     except WebSocketDisconnect:
-        print(f"Client disconnected: {task_id}")
+        print(f"Kết nối WebSocket bị ngắt: {task_id}")

@@ -1,143 +1,121 @@
-Mermaid Diagram Generator with Qwen3-VL (Microservices)
+# AI Mermaid Diagram Generator (Microservices)
 
-Dự án này sử dụng kiến trúc Microservices để tách biệt phần API Gateway (FastAPI) nhẹ và phần AI Worker (Celery + Qwen3-VL) nặng. Hệ thống sử dụng Redis làm Message Broker để giao tiếp.
+Hệ thống tạo và tối ưu hóa sơ đồ Mermaid.js dựa trên kiến trúc Microservices. Dự án hỗ trợ đa mô hình (Multi-model) và tích hợp xử lý thời gian thực qua WebSocket.
 
-📂 Cấu trúc dự án
+## 🌟 Tính năng chính
 
+* **Multi-Model Support:** Tích hợp linh hoạt các dòng Model SOTA: `Qwen3-VL`, `Gemma-3`, `Phi-3.5-Vision`, và `Llama-3.2`.
+* **Chế độ hoạt động song song:**
+* `generate`: Chuyển đổi mô tả nghiệp vụ thành sơ đồ trình tự (`sequenceDiagram`).
+* `fix`: Tự động sửa lỗi cú pháp Mermaid hoặc convert code (Python, JS...) sang sơ đồ.
+
+
+* **Real-time Streaming:** Theo dõi quá trình AI suy luận từng Token thông qua kết nối **WebSocket**.
+* **Kiến trúc hướng sự kiện:** Tách biệt API Gateway và AI Worker thông qua **Redis & Celery**.
+
+---
+
+## 📂 Cấu trúc thư mục
+
+```text
 my_project/
-├── api/ # Service 1: API Gateway (Nhẹ)
-│ ├── venv/ # Virtual Environment cho API
-│ └── main.py # Code FastAPI
-├── model/ # Service 2: AI Worker (Nặng - Chứa Model)
-│ ├── venv/ # Virtual Environment cho AI (Torch, Transformers)
-│ └── tasks.py # Code Celery Worker
-├── docker-compose.yml # Cấu hình Redis (Tùy chọn)
-└── README.md # Hướng dẫn sử dụng
+├── api/                # Service 1: API Gateway (FastAPI)
+│   └── main.py         # REST Endpoint & WebSocket Logic
+├── model/              # Service 2: AI Worker (Celery)
+│   ├── tasks.py        # Model Inference & Logic
+│   └── parser.py       # Công cụ trích xuất mã Mermaid
+├── docker-compose.yml  # Quản lý hạ tầng (Redis)
+└── README.md           
 
-🚀 Bước 1: Khởi động Redis (Message Broker)
+```
 
-Hệ thống cần Redis để truyền tải task giữa API và Worker.
+---
 
-Cách 1: Dùng Docker (Khuyên dùng)
+## 🛠 Cấu hình & Chạy dự án
 
+### 1. Hạ tầng (Message Broker)
+
+Sử dụng Docker để khởi động Redis nhanh chóng:
+
+```bash
 docker run -d -p 6379:6379 --name redis-broker redis
 
-Cách 2: Dùng Redis cài trực tiếp trên máy
-Đảm bảo Redis server đang chạy ở cổng 6379.
+```
 
-🧠 Bước 2: Cài đặt và Chạy AI Worker (model/)
+### 2. Cài đặt AI Worker (`model/`)
 
-Service này chịu trách nhiệm tải Model Qwen3-VL (4GB~) và xử lý tạo code Mermaid.
+Service này chịu trách nhiệm tải Model nặng và xử lý tính toán.
 
-1. Tạo môi trường và cài đặt thư viện:
+**Biến môi trường cần thiết:**
+| Biến | Mô tả | Giá trị ví dụ |
+| :--- | :--- | :--- |
+| `MODEL_TYPE` | Loại model muốn chạy | `qwen`, `gemma`, `phi`, `llama` |
+| `HF_TOKEN` | Token truy cập HuggingFace | `hf_xxxxxxxxxxxxxxxxx` |
+| `REDIS_URL` | Địa chỉ kết nối Redis | `redis://localhost:6379/0` |
 
-# Di chuyển vào thư mục model
+**Các bước chạy:**
 
+```bash
 cd model
-
-# Tạo venv
-
 python -m venv venv
-
-# Kích hoạt venv (Windows)
-
-.\venv\Scripts\activate
-
-# Cài đặt các thư viện nặng (Torch, Transformers, Qwen...)
-
+source venv/bin/activate  # Hoặc .\venv\Scripts\activate trên Windows
 pip install -r requirements.txt
 
-# Lưu ý: Nếu dùng GPU NVIDIA, hãy đảm bảo cài torch bản CUDA.
-
-2. Chạy Worker:
-   Mở một cửa sổ Terminal riêng (Terminal A), chạy lệnh sau:
-
-# Chạy Celery Worker (Pool=solo là bắt buộc trên Windows để tránh lỗi)
-
+# Khởi động Worker (Sử dụng --pool=solo cho Windows)
+export MODEL_TYPE="qwen"
 python -m celery -A tasks worker --loglevel=info --pool=solo
 
-Lần chạy đầu tiên sẽ mất vài phút để tải Model từ HuggingFace.
+```
 
-🌐 Bước 3: Cài đặt và Chạy API Gateway (api/)
+### 3. Cài đặt API Gateway (`api/`)
 
-Service này nhận request từ người dùng và đẩy vào hàng đợi Redis.
+Service nhẹ, nhận request và quản lý kết nối WebSocket.
 
-1. Tạo môi trường và cài đặt thư viện:
-
-# Mở một Terminal MỚI (Terminal B). Di chuyển vào thư mục api
-
+```bash
 cd api
-
-# Tạo venv
-
 python -m venv venv
-
-# Kích hoạt venv (Windows)
-
-.\venv\Scripts\activate
-
-# Cài đặt thư viện nhẹ
-
+source venv/bin/activate
 pip install -r requirements.txt
 
-2. Chạy API Server:
-
+# Khởi động server
 uvicorn main:app --reload --port 8000
 
-⚡ Bước 4: Kiểm thử (Testing)
+```
 
-Bạn có thể dùng Postman hoặc cURL để gửi yêu cầu.
+---
 
-1. Gửi yêu cầu tạo sơ đồ (POST)
+## 📡 Hướng dẫn tích hợp API
 
-URL: http://127.0.0.1:8000/predict
-Body (JSON):
+### 1. Gửi yêu cầu tạo sơ đồ
 
+**Endpoint:** `POST /predict`
+
+**Payload:**
+
+```json
 {
-"text": "Tạo sơ đồ luồng đăng nhập bao gồm: Người dùng nhập user/pass, gửi đến API, API check Database. Nếu đúng trả về Token, sai trả về lỗi."
+  "text": "Người dùng đăng ký, hệ thống gửi email xác nhận, người dùng click link để hoàn tất",
+  "mode": "generate"
 }
 
-Response:
+```
 
-{
-"message": "Đã gửi yêu cầu tạo sơ đồ",
-"task_id": "d853d254-018a-4d0e-b0e2-8c36bf1066da",
-...
-}
+**Response:** Trả về `task_id` để theo dõi tiến độ.
 
-2. Lấy kết quả (GET)
+### 2. Theo dõi tiến độ & Nhận kết quả (WebSocket)
 
-Lấy task_id từ bước trên để kiểm tra kết quả.
+**URL:** `ws://127.0.0.1:8000/ws/task/{task_id}`
 
-URL: http://127.0.0.1:8000/results/<TASK_ID>
+Khi kết nối thành công, bạn sẽ nhận được các gói tin JSON chứa trạng thái:
 
-Response (Khi hoàn thành):
+* `PROGRESS`: Chứa `percent` và `partial_result` (mã Mermaid đang được sinh ra).
+* `SUCCESS`: Chứa kết quả `result` cuối cùng đã qua bộ lọc cú pháp.
 
-{
-"task_id": "...",
-"status": "SUCCESS",
-"data": {
-"status": "completed",
-"mermaid_code": "sequenceDiagram\n participant User..."
-}
-}
+---
 
-⚠️ Các lỗi thường gặp
+## 🤖 Cấu hình AI Model (Prompting)
 
-Lỗi clocks are out of sync (Lệch giờ):
+Hệ thống được thiết kế với **Temperature = 0.01** để đảm bảo tính nhất quán tuyệt đối trong cú pháp Mermaid.
 
-Đảm bảo code celery ở cả 2 file main.py và tasks.py đã có cấu hình timezone='Asia/Ho_Chi_Minh'.
-
-Nếu vẫn bị, hãy restart lại Redis: docker restart redis-broker.
-
-Lỗi Model chưa sẵn sàng:
-
-Worker cần thời gian để tải model vào VRAM/RAM. Hãy nhìn vào Terminal A (Worker) xem đã hiện dòng "Model tải thành công!" hay chưa.
-
-Lỗi Flash Attention trên Windows:
-
-Trong file model/tasks.py, hãy comment dòng attn_implementation="flash_attention_2" nếu bạn chưa biên dịch được thư viện này trên Windows.
-
-Worker không nhận Task:
-
-Kiểm tra xem tên task trong api/main.py (send_task('generate_mermaid_task', ...)) có khớp 100% với model/tasks.py (name="generate_mermaid_task") không.
+* **Prompt Generate:** Tập trung vào vai trò Kiến trúc sư phần mềm, chuyển đổi logic nghiệp vụ sang `sequenceDiagram`.
+* **Prompt Fix:** Tập trung vào vai trò Validator, chỉ sửa lỗi cú pháp và trả về code sạch, không kèm giải thích.
